@@ -1,19 +1,35 @@
 // tmsarray.hpp
 // Matthew Johnson
 // 10/26/2023
-// 
+// class that implements a mildly smart array via dynamic memory allocation
 
 #pragma once
 // for single inclusion
 
 #include <cstddef>
 // For std::size_t
+
 #include <algorithm>
 // For std::max
 // For std::copy
 // For std::swap
 // For std::rotate
 
+
+
+// *********************************************************************
+// class MSArray - Class definition
+// *********************************************************************
+
+
+// class MSArray
+// Marvelously Smart Array of int.
+// Resizable, copyable/movable, exception-safe.
+// Invariants:
+//     0 <= _size <= _capacity.
+//     _data points to an array of value_type, allocated with new [],
+//      owned by *this, holding _capacity value_type values -- UNLESS
+//      _capacity == 0, in which case _data may be nullptr.
 
 template <typename Valtype>
 class TMSArray
@@ -44,7 +60,11 @@ public:
 
     // Default ctor & ctor from size
     // Strong Guarantee
-    explicit TMSArray(size_type thesize=0)
+    // Exception-Neutral
+    // Pre: None
+    // Post: 
+    //      TMSArray is constructed with set size capacity and allocated memory
+    explicit TMSArray(size_type thesize=0) // =0 makes size 0 if parameter is not filled
         :_capacity(std::max(thesize, size_type(DEFAULT_CAP))), // _capacity must be declared before _data
          _size(thesize),
          _data(_capacity == 0 ? nullptr : new value_type[_capacity]) // ? : acts as if else statment
@@ -53,18 +73,20 @@ public:
 
     // Copy ctor
     // Strong Guarantee
+    // Exception-Neutral
+    // Pre:
+    //      other must be same type as this
+    // Post: 
+    //      TMSArray is constructed with set size capacity and allocated memory
+    //      TMSArray is a copy of other and other is unmodifed
     TMSArray(const TMSArray & other)
         :_capacity(other._capacity),
          _size(other.size()),
          _data(other._capacity == 0 ? nullptr : new value_type[other._capacity]) // ? : acts as if else statment
-        // The above call to std::copy does not throw, since it copies int
-        // values. But if value_type is changed, then the call may throw, in
-        // which case this copy ctor may need to be rewritten.
-    {
-       // std::copy(other.begin(), other.end(), begin());
-        
+    {   
         try
         {
+            // copy must be in a try block because it might fail and leak memory
             std::copy(other.begin(), other.end(), begin());
         }
         catch(...)
@@ -79,6 +101,12 @@ public:
 
     // Move ctor
     // No-Throw Guarantee
+    // Exception-Neutral
+    // Pre:
+    //      other must be same type as this
+    // Post: 
+    //      TMSArray is constructed with set size capacity and allocated memory
+    //      TMSArray is a copy of other and other is set to nothing
     TMSArray(TMSArray && other) noexcept
         :_capacity(other._capacity),
         _size(other._size),
@@ -92,6 +120,12 @@ public:
 
     // Copy assignment operator
     // Strong Guarantee
+    // Exception-Neutral
+    // Pre:
+    //      other must be same type as this
+    // Post: 
+    //      TMSArray is constructed with set size capacity and allocated memory
+    //      TMSArray is a copy of other and other is unmodifed
     TMSArray & operator=(const TMSArray & other)
     {
         TMSArray copy(other);
@@ -102,6 +136,12 @@ public:
 
     // Move assignment operator
     // No-Throw Guarantee
+    // Exception-Neutral
+    // Pre:
+    //      other must be same type as this
+    // Post: 
+    //      TMSArray is constructed with set size capacity and allocated memory
+    //      TMSArray is a copy of other and other is modifed
     TMSArray & operator=(TMSArray && other) noexcept
     {
         swap(other);
@@ -111,6 +151,8 @@ public:
 
     // Dctor
     // No-Throw Guarantee
+    // Pre: None
+    // Post: None
     ~TMSArray()
     {
         delete [] _data;
@@ -123,9 +165,12 @@ public:
 
 
     // operator[] - non-const & const
-    // Pre:
-    //     ???
     // No-Throw Guarantee
+    // Exception-Neutral
+    // Pre:
+    //      0 <= index < size
+    // Post: 
+    //      Returns _data at index
     value_type & operator[](size_type index)
     {
         return _data[index];
@@ -142,6 +187,10 @@ public:
 
     // size
     // No-Throw Guarantee
+    // Exception-Neutral
+    // Pre: None
+    // Post: 
+    //      Returns _size
     size_type size() const noexcept
     {
         return _size;
@@ -150,6 +199,10 @@ public:
 
     // empty
     // No-Throw Guarantee
+    // Exception-Neutral
+    // Pre: None
+    // Post: 
+    //      Returns size() == 0
     bool empty() const noexcept
     {
         return size() == 0;
@@ -158,6 +211,10 @@ public:
 
     // begin - non-const & const
     // No-Throw Guarantee
+    // Exception-Neutral
+    // Pre: None
+    // Post: 
+    //      Returns iterator to first positiion in array
     iterator begin() noexcept
     {
         return _data;
@@ -170,6 +227,10 @@ public:
 
     // end - non-const & const
     // No-Throw Guarantee
+    // Exception-Neutral
+    // Pre: None
+    // Post: 
+    //      Returns iterator to positiion past last data point in array
     iterator end() noexcept
     {
         return begin() + size();
@@ -181,7 +242,13 @@ public:
 
 
     // resize
-    // ??? Guarantee
+    // Strong Guarantee
+    // Exception-Neutral
+    // Pre: 
+    //      newsize > 0
+    // Post: 
+    //      _size == newsize
+    //      if new capacity is needed: _capacity == newCapacity and _data == newData
     void resize(size_type newsize)
     {
         if(newsize > _capacity)
@@ -195,13 +262,13 @@ public:
             }
             catch(...)
             {
-                delete [] newData;
+                delete [] newData; // if copy fails and data that was copied is deleted
                 throw;
             }
 
             _capacity = newCapacity;
 
-            delete [] _data;
+            delete [] _data; // _data is no longer needed bc newData has been sucsessfully allocated and copied
             _data = newData;
             
         }   
@@ -212,50 +279,66 @@ public:
 
 
     // insert
+    // Strong Guarantee
+    // Exception-Neutral
     // Pre:
-    //     ???
-    // ??? Guarantee
-    iterator insert(iterator pos, value_type item)
-        // Above, passing by value is appropriate, since our value type
-        // is int. However, if the value type is changed, then a
-        // different parameter-passing method may need to be used.
+    //     0 <= pos < _size
+    // Post: 
+    //      ++_size
+    //      item is inserted at correct position and rest of the data points are moved back
+    //      returns iterator at new item position
+    iterator insert(iterator pos, const value_type & item)
     {
-        size_type diff = pos - begin();
+        size_type diff = pos - begin(); // gets items distance from begining
+
         resize(size() + 1);
         _data[size()-1] = item;
         std::rotate(begin()+diff, end() - 1, end());
-        return begin() + diff;  // need to be fixed
+
+        return begin() + diff;  // uses diff to return correct iterator
     }
         
 
 
     // erase
+    // No-Throw Guarantee
+    // Exception-Neutral
     // Pre:
-    //     ???
-    // ??? Guarantee
-    iterator erase(iterator pos)
+    //     0 <= pos < _size
+    //     _size > 0
+    // Post: 
+    //      --_size
+    //      item is erased at correct position and rest of the data points are moved foward
+    //      returns iterator at erased item position
+    iterator erase(iterator pos) noexcept
     {
         std::rotate(pos, pos+1, end()); 
         this->resize(size() - 1);
-        return pos;  // DUMMY
+        return pos;
     }
 
 
     // push_back
-    // ??? Guarantee
-    void push_back(value_type item)
-        // Above, passing by value is appropriate, since our value type
-        // is int. However, if the value type is changed, then a
-        // different parameter-passing method may need to be used.
+    // Strong Guarantee
+    // Exception-Neutral
+    // Pre: None
+    // Post: 
+    //      ++_size
+    //      item is inserted at end of list
+    void push_back(const value_type & item)
     {
         insert(end(), item);
     }
 
     // pop_back
+    // No-Throw Guarantee
+    // Exception-Neutral
     // Pre:
-    //     ???
-    // ??? Guarantee
-    void pop_back()
+    //     container size must be greater than 0 
+    // Post: 
+    //      --_size
+    //      item is removed from end of list
+    void pop_back() noexcept
     {
         erase(end()-1);
     }
@@ -263,6 +346,9 @@ public:
 
     // swap
     // No-Throw Guarantee
+    // Exception-Neutral
+    // Pre: None
+    // Post: None
     void swap(TMSArray & other) noexcept
     {
         std::swap(this->_capacity, other._capacity);
